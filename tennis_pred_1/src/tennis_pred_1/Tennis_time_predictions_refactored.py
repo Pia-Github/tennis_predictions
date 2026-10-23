@@ -220,6 +220,9 @@ def preprocessing(df):
     Returns:
         pd.DataFrame: Fully preprocessed DataFrame ready for model training.
     """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas DataFrame")
+    
     df = drop_coulumns(df)
     df = date_to_month(df)
     df = fix_names(df)
@@ -271,6 +274,9 @@ def train_model(X_train, y_train, X_test, y_test):
     Returns:
         float: RMSE of the best AutoML model on the test set.
     """
+    if X_train.empty or y_train.empty:
+        raise ValueError("Training data is empty")
+
     train = h2o.H2OFrame(pd.concat([X_train, y_train], axis=1))
     test  = h2o.H2OFrame(pd.concat([X_test, y_test], axis=1))
 
