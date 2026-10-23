@@ -7,7 +7,15 @@ authors = [
     { name = "Pia", email = "103035405+Pia-Github@users.noreply.github.com" }
 ]
 requires-python = ">=3.11.13"
-dependencies = []
+dependencies = [
+    "h2o==3.46.0.12",
+    "ipykernel>=7.4.0",
+    "matplotlib>=3.11.2",
+    "numpy>=2.4.6",
+    "pandas>=3.1.0",
+    "pyarrow>=26.0.0",
+    "scikit-learn>=1.9.1",
+]
 
 [project.scripts]
 tennis-pred-1 = "tennis_pred_1:main"
@@ -15,3 +23,9 @@ tennis-pred-1 = "tennis_pred_1:main"
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.4.0",
+    "notebook>=7.6.3",
+]
