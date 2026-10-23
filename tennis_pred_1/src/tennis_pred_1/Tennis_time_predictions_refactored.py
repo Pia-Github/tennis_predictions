@@ -5,6 +5,7 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
+from loguru import logger
 import os
 os.environ["JAVA_HOME"] = "/Library/Java/JavaVirtualMachines/temurin-11.jdk/Contents/Home"
 import h2o
@@ -14,7 +15,7 @@ h2o.init()
 #load dataset
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 tennis_df = pd.read_csv(os.path.join(BASE_DIR, "ATP_tennis_group_project.csv"))
-
+logger.info("dataframe loaded")
 
 # Data Preprocessing
 def drop_coulumns(df):
@@ -222,6 +223,8 @@ def preprocessing(df):
     """
     if not isinstance(df, pd.DataFrame):
         raise TypeError("Input must be a pandas DataFrame")
+
+    logger.info("Starting preprocessing")
     
     df = drop_coulumns(df)
     df = date_to_month(df)
@@ -230,6 +233,7 @@ def preprocessing(df):
     df = deduplicate(df)
     df = missing_data_handling(df)
     df = data_encoding(df)
+    logger.info("Preprocessing complete")
     return df
 
 
@@ -253,6 +257,7 @@ def splitting(df):
     y = df["minutes"]
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    logger.info("Train test split complete")
     return X_train, X_test, y_train, y_test
 
 X_train, X_test, y_train, y_test = splitting(tennis_df)
@@ -277,6 +282,8 @@ def train_model(X_train, y_train, X_test, y_test):
     if X_train.empty or y_train.empty:
         raise ValueError("Training data is empty")
 
+    logger.info("Starting Training of model")
+
     train = h2o.H2OFrame(pd.concat([X_train, y_train], axis=1))
     test  = h2o.H2OFrame(pd.concat([X_test, y_test], axis=1))
 
@@ -285,7 +292,8 @@ def train_model(X_train, y_train, X_test, y_test):
     
     perf = aml.leader.model_performance(test)
     rmse_automl = perf.rmse()
-    
+
+    logger.info("Model complete")
     return rmse_automl
 
 rmse_automl = train_model(X_train, y_train, X_test, y_test)
@@ -310,6 +318,7 @@ def baseline_model(df):
     baseline = df.groupby('best_of')['minutes'].mean()
     y_pred = X_test['best_of'].map(baseline)
     rmse_baseline = np.sqrt(((y_test - y_pred) ** 2).mean())
+    logger.info("Baseline Model complete")
     return rmse_baseline
 
 rmse_baseline = baseline_model(tennis_df)
@@ -334,6 +343,7 @@ def compare_trained_baseline(df):
     improvement = rmse_baseline - rmse_automl
     improvement_pct = (improvement / rmse_baseline) * 100
 
+    logger.info("Comparison complete")
     return f"Improvement: {improvement:.2f} minutes ({improvement_pct:.1f}%)"
 
 print(compare_trained_baseline(tennis_df))

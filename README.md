@@ -38,3 +38,4 @@ Refactoring:
 - Error handling einbauen
 - Add logger (loguru)
 Testing
+
