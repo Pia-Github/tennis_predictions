@@ -21,3 +21,8 @@ uv add --dev notebook
 uv run jupyter notebook
 
 uv run python -m ipykernel install --user --name=tennis_pred
+
+uv run jupyter nbconvert --to=script notebooks/Tennis_data_master_table.ipynb
+
+mv notebooks/Tennis_data_master_table.py src/tennis_pred_1/
+mv src/tennis_pred_1/Tennis_data_master_table.py src/tennis_pred_1/train.py
