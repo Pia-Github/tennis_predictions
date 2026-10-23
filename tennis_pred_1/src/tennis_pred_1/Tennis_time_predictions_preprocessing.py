@@ -6,16 +6,11 @@ from sklearn.impute import IterativeImputer
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from loguru import logger
-import os
-os.environ["JAVA_HOME"] = "/Library/Java/JavaVirtualMachines/temurin-11.jdk/Contents/Home"
-import h2o
-from h2o.automl import H2OAutoML
-h2o.init()
 
 #load dataset
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-tennis_df = pd.read_csv(os.path.join(BASE_DIR, "ATP_tennis_group_project.csv"))
-logger.info("dataframe loaded")
+#BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+#tennis_df = pd.read_csv(os.path.join(BASE_DIR, "ATP_tennis_group_project.csv"))
+#logger.info("dataframe loaded")
 
 # Data Preprocessing
 def drop_coulumns(df):
@@ -236,9 +231,6 @@ def preprocessing(df):
     logger.info("Preprocessing complete")
     return df
 
-
-tennis_df = preprocessing(tennis_df)
-
 # Train Test Split
 def splitting(df):
     """
@@ -260,90 +252,18 @@ def splitting(df):
     logger.info("Train test split complete")
     return X_train, X_test, y_train, y_test
 
-X_train, X_test, y_train, y_test = splitting(tennis_df)
 
-# Train Model
-def train_model(X_train, y_train, X_test, y_test):
+# combine preprocessing and splitting
+def preprocessing_splitting(df):
     """
-    Trains an H2O AutoML model and evaluates it on the test set.
-
-    Converts the input data to H2O frames, runs AutoML for 30 seconds,
-    and returns the RMSE of the best model evaluated on the test set.
+    Runs the full preprocessing pipeline and splits the data into train/test sets.
 
     Parameters:
-        X_train (pd.DataFrame): Training features.
-        y_train (pd.Series): Training target ('minutes').
-        X_test (pd.DataFrame): Test features.
-        y_test (pd.Series): Test target ('minutes').
+        df (pd.DataFrame): Raw tennis DataFrame.
 
     Returns:
-        float: RMSE of the best AutoML model on the test set.
+        tuple: X_train, X_test, y_train, y_test as pandas DataFrames/Series.
     """
-    if X_train.empty or y_train.empty:
-        raise ValueError("Training data is empty")
-
-    logger.info("Starting Training of model")
-
-    train = h2o.H2OFrame(pd.concat([X_train, y_train], axis=1))
-    test  = h2o.H2OFrame(pd.concat([X_test, y_test], axis=1))
-
-    aml = H2OAutoML(max_runtime_secs=30, seed=42)
-    aml.train(y="minutes", training_frame=train)
-    
-    perf = aml.leader.model_performance(test)
-    rmse_automl = perf.rmse()
-
-    logger.info("Model complete")
-    return rmse_automl
-
-rmse_automl = train_model(X_train, y_train, X_test, y_test)
-print(rmse_automl)
-
-
-# ## Baseline Model
-
-def baseline_model(df):
-    """
-    Computes a naive baseline RMSE using mean match duration per 'best_of' category.
-
-    Groups matches by the number of sets ('best_of') and predicts the mean duration
-    for each group. Used as a lower-bound benchmark to compare against AutoML.
-
-    Parameters:
-        df (pd.DataFrame): Preprocessed DataFrame (used to compute group means).
-
-    Returns:
-        float: RMSE of the baseline predictions on the test set.
-    """
-    baseline = df.groupby('best_of')['minutes'].mean()
-    y_pred = X_test['best_of'].map(baseline)
-    rmse_baseline = np.sqrt(((y_test - y_pred) ** 2).mean())
-    logger.info("Baseline Model complete")
-    return rmse_baseline
-
-rmse_baseline = baseline_model(tennis_df)
-print(rmse_baseline)
-
-
-# Improvement Trained Model vs. Baseline Model
-
-def compare_trained_baseline(df):
-    """
-    Compares the AutoML model RMSE against the baseline RMSE.
-
-    Calculates the absolute and relative improvement of the AutoML model
-    over the naive baseline prediction.
-
-    Parameters:
-        df (pd.DataFrame): Not used directly; included for pipeline consistency.
-
-    Returns:
-        str: Formatted string showing improvement in minutes and as a percentage.
-    """
-    improvement = rmse_baseline - rmse_automl
-    improvement_pct = (improvement / rmse_baseline) * 100
-
-    logger.info("Comparison complete")
-    return f"Improvement: {improvement:.2f} minutes ({improvement_pct:.1f}%)"
-
-print(compare_trained_baseline(tennis_df))
+    df = preprocessing(df)
+    X_train, X_test, y_train, y_test = splitting(df)
+    return X_train, X_test, y_train, y_test
