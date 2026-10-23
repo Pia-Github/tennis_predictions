@@ -1,21 +1,14 @@
 import pandas as pd
 import numpy as np
-
-
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 import h2o
 from h2o.automl import H2OAutoML
-import matplotlib.pyplot as pyplot
 
 tennis_df = pd.read_csv("ATP_tennis_group_project.csv")
 tennis_df = tennis_df.drop(columns=["Unnamed: 0"])
-
-tennis_df.shape
-
-tennis_df.head()
 
 tennis_df = pd.read_csv("ATP_tennis_group_project.csv")
 
@@ -31,8 +24,6 @@ cols_to_drop = [
 ]
 
 tennis_df = tennis_df.drop(columns=cols_to_drop)
-
-tennis_df.head()
 
 tennis_df["month"] = pd.to_datetime(tennis_df["tourney_date"]).dt.month
 tennis_df["tourney_month_sin"] = np.sin(2 * np.pi * tennis_df["month"] / 12)
@@ -59,11 +50,7 @@ tennis_df.drop(columns=winner_cols + loser_cols, inplace=True)
 
 long_df = tennis_df.copy()
 
-long_df.head()
-
 long_df = long_df.drop_duplicates()
-
-long_df.info()
 
 long_df = long_df.dropna(subset=["minutes"])
 long_df = long_df[long_df["minutes"] > 0]
@@ -73,18 +60,12 @@ long_df["rank_2"] = long_df["rank_2"].fillna(9999)
 long_df["rank_points_1"] = long_df["rank_points_1"].fillna(0)
 long_df["rank_points_2"] = long_df["rank_points_2"].fillna(0)
 
-from sklearn.experimental import enable_iterative_imputer
-from sklearn.impute import IterativeImputer
 
 imputer = IterativeImputer(random_state=42)
 
 long_df[["age_1", "ht_1", "age_2", "ht_2"]] = imputer.fit_transform(
     long_df[["age_1", "ht_1", "age_2", "ht_2"]]
 )
-
-long_df.head()
-
-from sklearn.preprocessing import LabelEncoder
 
 cat_cols = ["tourney_id", "tourney_name", "name_1", "name_2", "ioc_1", "ioc_2"]
 
@@ -105,9 +86,6 @@ round_order = {
 }
 long_df["round"] = long_df["round"].map(round_order)
 
-long_df.head()
-
-from sklearn.model_selection import train_test_split
 X = long_df.drop(columns=["minutes"])
 y = long_df["minutes"]
 
@@ -118,15 +96,11 @@ X_test.to_csv("X_test")
 y_train.to_csv("y_train")
 y_test.to_csv("y_test")
 
-y_train.describe()
-
 print(X_test.isnull().sum()[X_test.isnull().sum() > 0])
 print(X_train.isnull().sum()[X_train.isnull().sum() > 0])
 print(y_train.isnull().sum()[y_train.isnull().sum() > 0])
 print(y_test.isnull().sum()[y_test.isnull().sum() > 0])
 
-import h2o
-from h2o.automl import H2OAutoML
 
 h2o.init()
 
@@ -146,8 +120,6 @@ for model_id in aml.leaderboard['model_id'].as_data_frame()['model_id']:
 varimp = best_single.varimp(use_pandas=True)
 print(varimp.head(20))
 
-import matplotlib.pyplot as plt
-
 rename_map = {
     'best_of': 'num sets',
     'draw_size': 'total participants',
@@ -164,25 +136,6 @@ rename_map = {
 top10 = varimp.head(10).sort_values('percentage', ascending=True)
 top10 = top10.copy()
 top10['variable'] = top10['variable'].map(rename_map).fillna(top10['variable'])
-
-fig, ax = plt.subplots(figsize=(8, 6))
-bars = ax.barh(top10['variable'], top10['percentage'] * 100, color='steelblue')
-
-for bar, val in zip(bars, top10['percentage'] * 100):
-    ax.text(bar.get_width() + 0.2, bar.get_y() + bar.get_height()/2,
-            f'{val:.1f}%', va='center', fontsize=10)
-
-bars = ax.barh(top10['variable'], top10['percentage'] * 100, color='#176FC1')
-ax.set_xlabel('Relative Importance (%)')
-ax.set_xlim(0, top10['percentage'].max() * 100 * 1.15)
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
-plt.tight_layout()
-plt.savefig('feature_importance_top10.png', dpi=150)
-plt.show()
-
-
-import numpy as np
 
 baseline = long_df.groupby('best_of')['minutes'].mean()
 print(baseline)
