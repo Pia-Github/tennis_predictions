@@ -26,3 +26,15 @@ uv run jupyter nbconvert --to=script notebooks/Tennis_data_master_table.ipynb
 
 mv notebooks/Tennis_data_master_table.py src/tennis_pred_1/
 mv src/tennis_pred_1/Tennis_data_master_table.py src/tennis_pred_1/train.py
+
+cd /workspaces/tennis_predictions/tennis_pred_1
+uv run python src/tennis_pred_1/train.py
+
+Refactoring:
+- Klassen
+- Pipelines
+- Daten interierbar machen, z.B. Jahr/Monat im Download-Link
+- Docstrings einfügen
+- Error handling einbauen
+- Add logger (loguru)
+Testing
