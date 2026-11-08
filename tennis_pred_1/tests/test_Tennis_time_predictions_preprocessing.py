@@ -184,28 +184,34 @@ def test_data_encoding_maps_round_and_leaves_only_numbers():
     # and one-hot columns exist, e.g. for surface
     assert {"surface_Hard", "surface_Clay"}.issubset(result.columns)
  
- 
-def test_preprocessing_removes_duplicate_matches():
-    # Given: 50 different matches, each one appears twice (exact duplicates)
-    players = make_player_columns(50)
-    matches = pd.concat([players, pd.DataFrame({
-        "tourney_id": "t1", "tourney_name": "A", "surface": "Hard", "tourney_level": "G",
-        "tourney_date": "2024-01-15", "best_of": 3, "round": "QF",
-        "minutes": range(100, 150),
-    })], axis=1)
-    df = pd.concat([matches, matches], ignore_index=True)
-    np.random.seed(0)
- 
-    # When
-    result = preprocessing.preprocessing(df)
- 
-    # Then: each match should be there only once
-    assert len(result) == 50
- 
- # ---------------------------------------------------------------
+# ---------------------------------------------------------------
 # Integration tests (real data)
 # ---------------------------------------------------------------
- 
+
+def test_real_data_has_no_duplicate_matches_after_deduplication():
+    # Given: the real dataset, processed up to deduplicate (same steps and order as in preprocessing())
+    df = load_tennis_df()
+    df = preprocessing.drop_coulumns(df)
+    df = preprocessing.date_to_month(df)
+    df = preprocessing.fix_names(df)
+    df = preprocessing.blinding_winning_losing(df)
+    df = preprocessing.deduplicate(df)
+
+    # When: player 1 and 2 are put into a fixed order (alphabetical by name),
+    # so that "X vs. Y" and "Y vs. X" with the same data look identical
+    player_cols = ["name", "hand", "ht", "ioc", "age", "rank", "rank_points"]
+    swap = df["name_1"] > df["name_2"]
+    for col in player_cols:
+        col_1, col_2 = f"{col}_1", f"{col}_2"
+        values_1 = df[col_1].copy()
+        df.loc[swap, col_1] = df.loc[swap, col_2]
+        df.loc[swap, col_2] = values_1[swap]
+    n_duplicates = df.duplicated().sum()
+
+    # Then: no match appears more than once
+    assert n_duplicates == 0, f"{n_duplicates} duplicate matches found"
+
+
 # Integration test: dropping columns successful
 def test_dropping_columns_succesfull():
     # Given: the real dataset and the columns that should be dropped / kept
