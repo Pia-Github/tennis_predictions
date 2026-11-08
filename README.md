@@ -37,5 +37,6 @@ Refactoring:
 - Docstrings einfügen
 - Error handling einbauen
 - Add logger (loguru)
-Testing
+- Makefile erstellen
+- Testing
 

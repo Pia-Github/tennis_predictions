@@ -1,4 +1,7 @@
-.PHONY: baseline model
+.PHONY: install baseline model
+
+install:
+	uv sync
 
 baseline:
 	uv run python -m tennis_pred_1.Tennis_time_predictions_baseline
