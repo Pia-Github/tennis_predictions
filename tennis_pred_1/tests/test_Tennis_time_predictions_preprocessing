@@ -1,0 +1,340 @@
+import os
+ 
+import numpy as np
+import pandas as pd
+import pytest
+ 
+from tennis_pred_1 import Tennis_time_predictions_preprocessing as preprocessing
+
+# ---------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------
+ 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_PATH = os.path.join(BASE_DIR, "..", "src", "tennis_pred_1", "ATP_tennis_group_project.csv")
+ 
+ 
+def load_tennis_df():
+    """Loads the real raw dataset."""
+    return pd.read_csv(CSV_PATH, low_memory=False)
+ 
+ 
+def make_player_columns(n):
+    """Creates n small matches with winner_* / loser_* columns.
+ 
+    Winner values and loser values are clearly distinguishable
+    (winner age = 20, loser age = 30, etc.), so we can see later
+    which player ended up in which column.
+    """
+    return pd.DataFrame({
+        "winner_name": [f"W{i}" for i in range(n)],
+        "winner_hand": "R",
+        "winner_ht": 180.0,
+        "winner_ioc": "GER",
+        "winner_age": 20.0,
+        "winner_rank": 1.0,
+        "winner_rank_points": 1000.0,
+        "loser_name": [f"L{i}" for i in range(n)],
+        "loser_hand": "L",
+        "loser_ht": 190.0,
+        "loser_ioc": "USA",
+        "loser_age": 30.0,
+        "loser_rank": 2.0,
+        "loser_rank_points": 500.0,
+    })
+ 
+ 
+@pytest.fixture(scope="module")
+def preprocessed_df():
+    """Runs the full preprocessing once on the real data and shares the result between tests."""
+    return preprocessing.preprocessing(load_tennis_df())
+
+
+# ---------------------------------------------------------------
+# Unit tests
+# ---------------------------------------------------------------
+ 
+def test_date_to_month_converts_correctly():
+    # Given: one match in January and one in July
+    df = pd.DataFrame({"tourney_date": ["2024-01-15", "2024-07-01"]})
+ 
+    # When
+    result = preprocessing.date_to_month(df)
+ 
+    # Then: January -> sin(2*pi*1/12) = 0.5, cos = 0.866
+    #       July    -> sin(2*pi*7/12) = -0.5, cos = -0.866
+    assert result["tourney_month_sin"].tolist() == pytest.approx([0.5, -0.5])
+    assert result["tourney_month_cos"].tolist() == pytest.approx([np.sqrt(3) / 2, -np.sqrt(3) / 2])
+    # and the original and intermediate columns are gone
+    assert "tourney_date" not in result.columns
+    assert "month" not in result.columns
+ 
+def test_blinding_keeps_both_players_in_each_match():
+    # Given: 100 matches with clearly different winner and loser values
+    df = make_player_columns(100)
+    winners = df["winner_name"].copy()
+    losers = df["loser_name"].copy()
+ 
+    # When
+    result = preprocessing.blinding_winning_losing(df)
+ 
+    # Then: in every match, player 1 and 2 are exactly the winner and the loser
+    for i in range(len(result)):
+        assert {result["name_1"][i], result["name_2"][i]} == {winners[i], losers[i]}
+ 
+ 
+def test_blinding_keeps_player_attributes_together():
+    # Given: winners are always 20 years old, losers always 30
+    df = make_player_columns(100)
+ 
+    # When
+    result = preprocessing.blinding_winning_losing(df)
+ 
+    # Then: whoever is player 1, the age belongs to the same person as the name
+    is_winner_1 = result["name_1"].str.startswith("W")
+    assert (result.loc[is_winner_1, "age_1"] == 20).all()
+    assert (result.loc[~is_winner_1, "age_1"] == 30).all()
+    # and the original winner_/loser_ columns are gone
+    assert not any(c.startswith(("winner_", "loser_")) for c in result.columns)
+ 
+ 
+def test_blinding_splits_winners_about_half_half():
+    # Given: many matches
+    df = make_player_columns(2000)
+ 
+    # When
+    result = preprocessing.blinding_winning_losing(df)
+ 
+    # Then: the winner is player 1 in roughly 50 % of the matches (random, so with tolerance)
+    share_winner_1 = result["name_1"].str.startswith("W").mean()
+    assert 0.45 < share_winner_1 < 0.55
+ 
+def test_missing_data_handling_removes_invalid_minutes():
+    # Given: one match without minutes, one with 0 minutes, three valid matches
+    df = pd.DataFrame({
+        "minutes": [np.nan, 0, 120, 90, 100],
+        "rank_1": [1.0, 2.0, 3.0, 4.0, 5.0], "rank_2": [1.0, 2.0, 3.0, 4.0, 5.0],
+        "rank_points_1": [1.0, 2.0, 3.0, 4.0, 5.0], "rank_points_2": [1.0, 2.0, 3.0, 4.0, 5.0],
+        "age_1": [25.0] * 5, "ht_1": [185.0] * 5, "age_2": [25.0] * 5, "ht_2": [185.0] * 5,
+    })
+ 
+    # When
+    result = preprocessing.missing_data_handling(df)
+ 
+    # Then: only the three valid matches remain
+    assert len(result) == 3
+    assert (result["minutes"] > 0).all()
+ 
+ 
+def test_missing_data_handling_fills_missing_rank():
+    # Given: a player without rank and rank points
+    df = pd.DataFrame({
+        "minutes": [100, 120, 90],
+        "rank_1": [np.nan, 5.0, 7.0], "rank_2": [3.0, np.nan, 8.0],
+        "rank_points_1": [np.nan, 10.0, 20.0], "rank_points_2": [30.0, np.nan, 40.0],
+        "age_1": [25.0, 30.0, 28.0], "ht_1": [185.0, 190.0, 180.0],
+        "age_2": [27.0, 22.0, 33.0], "ht_2": [188.0, 175.0, 182.0],
+    })
+ 
+    # When
+    result = preprocessing.missing_data_handling(df)
+ 
+    # Then: missing rank -> 9999, missing rank points -> 0
+    assert result["rank_1"].tolist() == [9999, 5, 7]
+    assert result["rank_2"].tolist() == [3, 9999, 8]
+    assert result["rank_points_1"].tolist() == [0, 10, 20]
+    assert result["rank_points_2"].tolist() == [30, 0, 40]
+ 
+ 
+def test_missing_data_handling_imputes_age_and_height():
+    # Given: missing age and height values
+    df = pd.DataFrame({
+        "minutes": [100, 120, 90, 110],
+        "rank_1": [1.0] * 4, "rank_2": [2.0] * 4,
+        "rank_points_1": [1.0] * 4, "rank_points_2": [2.0] * 4,
+        "age_1": [25.0, np.nan, 28.0, 30.0], "ht_1": [185.0, 190.0, np.nan, 180.0],
+        "age_2": [27.0, 22.0, 33.0, np.nan], "ht_2": [np.nan, 175.0, 182.0, 188.0],
+    })
+ 
+    # When
+    result = preprocessing.missing_data_handling(df)
+ 
+    # Then: no missing values are left in these columns
+    assert result[["age_1", "ht_1", "age_2", "ht_2"]].notna().all().all()
+ 
+ 
+def test_data_encoding_maps_round_and_leaves_only_numbers():
+    # Given: a small dataset with all categorical columns
+    df = pd.DataFrame({
+        "tourney_id": ["t1", "t2"], "tourney_name": ["A", "B"],
+        "name_1": ["X", "Y"], "name_2": ["Y", "X"],
+        "ioc_1": ["GER", "USA"], "ioc_2": ["USA", "GER"],
+        "tourney_level": ["G", "M"], "surface": ["Hard", "Clay"],
+        "hand_1": ["R", "L"], "hand_2": ["L", "R"],
+        "round": ["QF", "F"],
+    })
+ 
+    # When
+    result = preprocessing.data_encoding(df)
+ 
+    # Then: round follows the match progression (QF -> 5, F -> 7)
+    assert result["round"].tolist() == [5, 7]
+    # and every column is numeric (no text left for the model)
+    assert all(pd.api.types.is_numeric_dtype(result[c]) for c in result.columns)
+    # and one-hot columns exist, e.g. for surface
+    assert {"surface_Hard", "surface_Clay"}.issubset(result.columns)
+ 
+ 
+def test_preprocessing_removes_duplicate_matches():
+    # Given: 50 different matches, each one appears twice (exact duplicates)
+    players = make_player_columns(50)
+    matches = pd.concat([players, pd.DataFrame({
+        "tourney_id": "t1", "tourney_name": "A", "surface": "Hard", "tourney_level": "G",
+        "tourney_date": "2024-01-15", "best_of": 3, "round": "QF",
+        "minutes": range(100, 150),
+    })], axis=1)
+    df = pd.concat([matches, matches], ignore_index=True)
+    np.random.seed(0)
+ 
+    # When
+    result = preprocessing.preprocessing(df)
+ 
+    # Then: each match should be there only once
+    assert len(result) == 50
+ 
+ # ---------------------------------------------------------------
+# Integration tests (real data)
+# ---------------------------------------------------------------
+ 
+# Integration test: dropping columns successful
+def test_dropping_columns_succesfull():
+    # Given: the real dataset and the columns that should be dropped / kept
+    tennis_df = load_tennis_df()
+ 
+    drop_col = ["Unnamed: 0", "winner_id", "loser_id",
+                "score",
+                "w_ace", "w_df", "w_svpt", "w_1stIn", "w_1stWon", "w_2ndWon", "w_SvGms", "w_bpSaved",
+                "w_bpFaced",
+                "l_ace", "l_df", "l_svpt", "l_1stIn", "l_1stWon", "l_2ndWon", "l_SvGms", "l_bpSaved",
+                "l_bpFaced",
+                "winner_seed", "loser_seed",
+                "winner_entry", "loser_entry", "has_stats", "match_num"]
+    keep_col = ['tourney_id', 'tourney_name', 'surface', 'draw_size', 'tourney_level', 'tourney_date',
+                'winner_name', 'winner_hand', 'winner_ht', 'winner_ioc', 'winner_age', 'loser_name',
+                'loser_hand', 'loser_ht', 'loser_ioc', 'loser_age', 'best_of', 'round', 'minutes',
+                'winner_rank', 'winner_rank_points', 'loser_rank', 'loser_rank_points', 'year']
+ 
+    # When
+    tennis_df = preprocessing.drop_coulumns(tennis_df)
+ 
+    # Then
+    for c in drop_col:
+        assert c not in tennis_df.columns
+ 
+    for k in keep_col:
+        assert k in tennis_df.columns
+ 
+ 
+def test_real_dates_give_different_months():
+    # Given: the real dataset
+    tennis_df = load_tennis_df()
+ 
+    # When
+    result = preprocessing.date_to_month(tennis_df)
+ 
+    # Then: matches are spread over several months
+    # (would fail if the date format in the CSV is not read correctly, e.g. every match in January)
+    assert result["tourney_month_sin"].round(6).nunique() > 1
+ 
+ 
+def test_preprocessed_data_has_no_missing_values(preprocessed_df):
+    # Given: the real data after full preprocessing
+    # When
+    missing = preprocessed_df.isna().sum()
+ 
+    # Then
+    assert missing.sum() == 0, f"Columns with missing values:\n{missing[missing > 0]}"
+ 
+ 
+def test_preprocessed_data_has_no_invalid_minutes(preprocessed_df):
+    # Given / When: the real data after full preprocessing
+    # Then
+    assert (preprocessed_df["minutes"] > 0).all()
+ 
+ 
+def test_all_rounds_are_mapped(preprocessed_df):
+    # Given / When: the real data after full preprocessing
+    # Then: every round value from the CSV exists in the round mapping
+    assert preprocessed_df["round"].notna().all()
+ 
+ 
+def test_split_has_80_percent_training_rows(preprocessed_df):
+    # Given: the real data after full preprocessing
+    n_rows = len(preprocessed_df)
+ 
+    # When
+    X_train, X_test, y_train, y_test = preprocessing.splitting(preprocessed_df)
+ 
+    # Then: 80 % train, 20 % test, no rows lost (1 row tolerance for rounding)
+    assert len(X_train) == pytest.approx(0.8 * n_rows, abs=1)
+    assert len(X_train) + len(X_test) == n_rows
+    assert len(X_train) == len(y_train)
+    assert len(X_test) == len(y_test)
+ 
+ 
+def test_split_targets_have_no_invalid_minutes(preprocessed_df):
+    # Given: the real data after full preprocessing
+    # When
+    X_train, X_test, y_train, y_test = preprocessing.splitting(preprocessed_df)
+ 
+    # Then
+    assert (y_train > 0).all()
+    assert (y_test > 0).all()
+ 
+ 
+# ---------------------------------------------------------------
+# "Model" tests: can a model learn from this data without cheating?
+# ---------------------------------------------------------------
+ 
+def test_features_do_not_contain_target(preprocessed_df):
+    # Given: the real data after full preprocessing
+    # When
+    X_train, X_test, y_train, y_test = preprocessing.splitting(preprocessed_df)
+ 
+    # Then: the model must not see the match duration as a feature
+    assert "minutes" not in X_train.columns
+    assert "minutes" not in X_test.columns
+ 
+ 
+def test_features_do_not_contain_post_match_stats(preprocessed_df):
+    # Given: statistics that are only known after the match
+    post_match_cols = ["score", "w_ace", "w_svpt", "w_SvGms", "l_ace", "l_svpt", "l_SvGms"]
+ 
+    # When
+    X_train, X_test, y_train, y_test = preprocessing.splitting(preprocessed_df)
+ 
+    # Then
+    for c in post_match_cols:
+        assert c not in X_train.columns
+ 
+ 
+def test_ages_are_plausible(preprocessed_df):
+    # Given: the real data after full preprocessing (missing ages were estimated with MICE)
+    # When
+    ages = pd.concat([preprocessed_df["age_1"], preprocessed_df["age_2"]])
+ 
+    # Then: all ages are in a realistic range for professional tennis players
+    assert ages.between(14, 50).all(), f"Implausible ages: {ages[~ages.between(14, 50)].tolist()}"
+ 
+ 
+def test_winner_is_not_identifiable_from_column_order():
+    # Given: the real dataset
+    tennis_df = load_tennis_df()
+    winner_names = tennis_df["winner_name"].copy()
+ 
+    # When
+    result = preprocessing.blinding_winning_losing(tennis_df)
+ 
+    # Then: the winner is player 1 in about half of the matches
+    share_winner_1 = (result["name_1"] == winner_names).mean()
+    assert 0.45 < share_winner_1 < 0.55
