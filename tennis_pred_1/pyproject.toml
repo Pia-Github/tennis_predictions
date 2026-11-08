@@ -29,4 +29,5 @@ build-backend = "uv_build"
 dev = [
     "ipykernel>=7.4.0",
     "notebook>=7.6.3",
+    "pytest>=9.2.0",
 ]
