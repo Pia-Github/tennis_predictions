@@ -7,11 +7,6 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from loguru import logger
 
-#load dataset
-#BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-#tennis_df = pd.read_csv(os.path.join(BASE_DIR, "ATP_tennis_group_project.csv"))
-#logger.info("dataframe loaded")
-
 # Data Preprocessing
 def drop_coulumns(df):
     """

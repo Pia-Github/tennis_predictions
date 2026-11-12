@@ -8,7 +8,6 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from loguru import logger
 import os
-os.environ["JAVA_HOME"] = "/Library/Java/JavaVirtualMachines/temurin-11.jdk/Contents/Home"
 import h2o
 from h2o.automl import H2OAutoML
 h2o.init()
