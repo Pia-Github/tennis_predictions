@@ -45,6 +45,6 @@ def predict_duration(player_1, player_2, tourney_name, draw_size, best_of,
 
 if __name__ == "__main__":
     result = predict_duration(
-        "Bernard Tomic", "Mattia Bellucci", "San Jose", 32, 3, "QF",
-        2026, "Hard", "C", "2024-9900", "2026-10-03")
+        "Bernard Tomic", "Mattia Bellucci", "Jingshan", 32, 3, "QF",
+        2026, "Hard", "C", "2025-1024", "2026-10-03")
     print(result)
