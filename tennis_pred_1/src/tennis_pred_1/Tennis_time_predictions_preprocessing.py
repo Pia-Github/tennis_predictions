@@ -155,9 +155,10 @@ def missing_data_handling(df):
 
 def data_encoding(df):
     """
-    Encodes categorical variables for model training.
+    Encodes categorical variables for model training and creates a legend of the label encoding.
 
     - Label Encoding: Applied to high-cardinality columns (tournament ID/name, player names, nationality).
+      Every encoded value and its number is stored in the legend.
     - One-Hot Encoding: Applied to low-cardinality nominal columns (surface, tournament level, handedness).
     - Ordinal Encoding: Applied to 'round' based on match progression order.
 
@@ -165,13 +166,20 @@ def data_encoding(df):
         df (pd.DataFrame): DataFrame after missing value handling.
 
     Returns:
-        pd.DataFrame: DataFrame with all categorical columns numerically encoded.
+        tuple:
+            pd.DataFrame: DataFrame with all categorical columns numerically encoded.
+            pd.DataFrame: Legend with the columns 'column' (original column),
+                          'value' (original value) and 'code' (encoded number).
     """
+    legend = []
+    
     #label encoding
     cat_cols = ["tourney_id", "tourney_name", "name_1", "name_2", "ioc_1", "ioc_2"]
     le = LabelEncoder()
     for col in cat_cols:
         df[col] = le.fit_transform(df[col].astype(str))
+        for code, value in enumerate(le.classes_):                  
+            legend.append({"column": col, "value": value, "code": code})
 
     #one hot encoding
     df = pd.get_dummies(df, columns=["tourney_level", "surface", "hand_1", "hand_2"])
@@ -188,7 +196,8 @@ def data_encoding(df):
     }
     df["round"] = df["round"].map(round_order)
     
-    return df
+    legend = pd.DataFrame(legend)
+    return df, legend
 
 
 # ## Preprocessing complete
@@ -203,7 +212,7 @@ def preprocessing(df):
     4. Blind winner/loser labels by random assignment to player_1/player_2
     5. Remove duplicate rows
     6. Handle missing values
-    7. Encode categorical variables
+    7. Encode categorical variables (data_encoding also creates a legend of the label encoding)
 
     Parameters:
         df (pd.DataFrame): Raw tennis DataFrame.
@@ -222,7 +231,7 @@ def preprocessing(df):
     df = blinding_winning_losing(df)
     df = deduplicate(df)
     df = missing_data_handling(df)
-    df = data_encoding(df)
+    df, legend = data_encoding(df)
     logger.info("Preprocessing complete")
     return df
 
