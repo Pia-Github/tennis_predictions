@@ -1,4 +1,4 @@
-.PHONY: install baseline model predict api test
+.PHONY: install baseline model predict api request test
 
 install:
 	uv sync
@@ -14,6 +14,9 @@ predict:
 
 api:
 	uv run fastapi dev src/tennis_pred_1/api.py
+
+request:
+	uv run python request_api.py
 
 test:
 	uv run pytest
