@@ -1,8 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from tennis_pred_1.Tennis_time_predictions_predict import predict_duration
+from fastapi.responses import RedirectResponse
 
 app = FastAPI(title="Tennis match duration prediction")
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/docs")
 
 
 class Match(BaseModel):

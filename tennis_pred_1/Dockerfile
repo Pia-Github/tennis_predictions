@@ -23,3 +23,4 @@ EXPOSE 8000
 
 # start the API
 CMD ["uv", "run", "--no-dev", "fastapi", "run", "src/tennis_pred_1/api.py", "--host", "0.0.0.0", "--port", "8000"]
+
