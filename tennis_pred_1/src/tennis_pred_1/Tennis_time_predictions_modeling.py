@@ -46,6 +46,8 @@ def train_model(X_train, y_train, X_test, y_test):
 
     aml = H2OAutoML(max_runtime_secs=30, seed=42)
     aml.train(y="minutes", training_frame=train)
+    h2o.save_model(aml.leader, path=os.path.join(BASE_DIR, "..", "..", "models"),
+                   filename="automl_leader", force=True)
     
     perf = aml.leader.model_performance(test)
     rmse_automl = perf.rmse()

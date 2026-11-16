@@ -90,7 +90,8 @@ def blinding_winning_losing(df):
         pd.DataFrame: DataFrame with anonymized player columns (name_1/2, hand_1/2, etc.)
                       and original winner/loser columns removed.
     """
-    mask = np.random.rand(len(df)) > 0.5
+    rng = np.random.default_rng(42)
+    mask = rng.random(len(df)) > 0.5
 
     winner_cols = ['winner_name', 'winner_hand', 'winner_ht', 'winner_ioc', 'winner_age',
                    'winner_rank', 'winner_rank_points']

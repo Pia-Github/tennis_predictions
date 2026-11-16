@@ -2,15 +2,28 @@
 import pandas as pd
 import numpy as np
 import warnings
+import os
 from sklearn.preprocessing import LabelEncoder
 
-tennis_df = pd.read_csv("ATP_tennis_group_project.csv")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+tennis_df = pd.read_csv(os.path.join(BASE_DIR, "ATP_tennis_group_project.csv"))
 tennis_df = tennis_df.drop(columns=["Unnamed: 0"])
+
+from tennis_pred_1 import Tennis_time_predictions_preprocessing as training_preprocessing
+
+# same preprocessing steps as for the model training -> preprocessed data and legend
+df_train = tennis_df.copy()
+df_train = training_preprocessing.drop_coulumns(df_train)
+df_train = training_preprocessing.date_to_month(df_train)
+df_train = training_preprocessing.fix_names(df_train)
+df_train = training_preprocessing.blinding_winning_losing(df_train)
+df_train = training_preprocessing.deduplicate(df_train)
+df_train = training_preprocessing.missing_data_handling(df_train)
+tennis_df_preprocessed, legend = training_preprocessing.data_encoding(df_train)
 
 
 # # Get data from players
 PLAYER_ATTRS = ["name", "hand", "ht", "ioc", "age", "rank", "rank_points"]
-
 
 def get_latest_player_info(df, player):
     """
@@ -178,11 +191,7 @@ def deduplicate(df):
     return df
 
 # fill missing data
-tennis_df_preprocessed = pd.read_csv("tennis_df_preprocessed.csv")
-
 FILL_ATTRS = ["rank", "rank_points", "age", "ht"]
-
-
 def missing_data_handling(df, df_preprocessed, legend):
     """
     Fills missing rank, rank points, age and height of both players
@@ -219,10 +228,6 @@ def missing_data_handling(df, df_preprocessed, legend):
     return df
 
 # data encoding
-legend = pd.read_csv("legend.csv", dtype={"value": str})
-legend.head()
-
-
 def data_encoding(df, legend):
     """
     Encodes categorical variables of the upcoming match for model input.
@@ -258,7 +263,7 @@ def data_encoding(df, legend):
 
         df[col] = df[col].astype(str).map(mapping).fillna(-1).astype(int)
 
-        #one hot encoding
+    #one hot encoding
     df = pd.get_dummies(df, columns=["tourney_level", "surface", "hand_1", "hand_2"])
     bool_cols = df.select_dtypes(include="bool").columns
     df[bool_cols] = df[bool_cols].astype(int)
