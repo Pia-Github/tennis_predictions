@@ -1,4 +1,4 @@
-.PHONY: install baseline model predict api request test
+.PHONY: install baseline model predict api request test docker-build docker-run
 
 install:
 	uv sync
@@ -20,3 +20,9 @@ request:
 
 test:
 	uv run pytest
+
+docker-build:
+	docker build -t tennis-pred .
+
+docker-run:
+	docker run -p 8000:8000 tennis-pred
