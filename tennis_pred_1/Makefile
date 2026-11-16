@@ -1,4 +1,4 @@
-.PHONY: install baseline model test
+.PHONY: install baseline model predict test
 
 install:
 	uv sync
@@ -8,6 +8,9 @@ baseline:
 
 model:
 	uv run python -m tennis_pred_1.Tennis_time_predictions_modeling
+
+predict:
+	uv run python -m tennis_pred_1.Tennis_time_predictions_predict
 
 test:
 	uv run pytest
