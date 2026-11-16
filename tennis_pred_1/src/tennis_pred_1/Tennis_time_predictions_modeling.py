@@ -44,7 +44,9 @@ def train_model(X_train, y_train, X_test, y_test):
     train = h2o.H2OFrame(pd.concat([X_train, y_train], axis=1))
     test  = h2o.H2OFrame(pd.concat([X_test, y_test], axis=1))
 
-    aml = H2OAutoML(max_runtime_secs=30, seed=42)
+    MAX_RUNTIME_SECS = int(os.environ.get("MAX_RUNTIME_SECS", "30"))
+    logger.info(f"AutoML runtime: {MAX_RUNTIME_SECS} seconds")
+    aml = H2OAutoML(max_runtime_secs= MAX_RUNTIME_SECS, seed=42)
     aml.train(y="minutes", training_frame=train)
     h2o.save_model(aml.leader, path=os.path.join(BASE_DIR, "..", "..", "models"),
                    filename="automl_leader", force=True)
